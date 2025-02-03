@@ -4,21 +4,30 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "start": "node dist/app.js",
+    "dev": "ts-node-dev --respawn --transpile-only src/app.ts",
+    "build": "tsc",
+    "test": "jest",
     "setup": "./scripts/setup-env.sh",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "deploy:rules": "firebase deploy --only firestore:rules,storage:rules"
+    "deploy:rules": "firebase deploy --only firestore:rules,storage:rules",
+    "seed": "ts-node scripts/seedDatabase.ts",
+    "seed:prod": "NDOE_ENV=production ts-node scripts/seedDatabase.ts",
+    "deploy": "./scripts/deploy.sh",
+    "deploy:seed": "./scripts/deploy.sh --seed",
+    "test:api": "ts-node scripts/testApi.ts",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "check-format": "prettier --check \"src/**/*.ts\""
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@faker-js/faker": "^9.4.0",
     "@google-cloud/storage": "^7.15.0",
-    "@types/cors": "^2.8.17",
-    "@types/express": "^5.0.0",
-    "@types/node": "^22.13.0",
-    "@types/swagger-jsdoc": "^6.0.4",
-    "@types/swagger-ui-express": "^4.1.7",
+    "axios": "^1.7.9",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
@@ -30,14 +39,19 @@
     "socket.io": "^4.8.1",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
-    "typescript": "^5.7.3",
     "winston": "^3.17.0"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
     "@types/multer": "^1.4.12",
+    "@types/node": "^22.13.0",
     "@types/socket.io": "^3.0.1",
+    "@types/swagger-jsdoc": "^6.0.4",
+    "@types/swagger-ui-express": "^4.1.7",
     "@typescript-eslint/eslint-plugin": "^8.22.0",
     "@typescript-eslint/parser": "^8.22.0",
-    "ts-node-dev": "^2.0.0"
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.7.3"
   }
 }
