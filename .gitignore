@@ -8,6 +8,7 @@ node_modules/
 
 # Firebase
 *-service-account.json
+*-service-account.dev.json
 firebase-debug.log
 
 # Build output
