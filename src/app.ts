@@ -1,4 +1,4 @@
-import express from "express";
+import express, { Express, Request, Response, NextFunction } from "express";
 import http from "http";
 import cors from "cors";
 import helmet from "helmet";
@@ -9,11 +9,14 @@ import { initializeSocket } from "./config/socket";
 import dogRoutes from "./routes/dogRoutes";
 import matchRoutes from "./routes/matchRoutes";
 import messageRoutes from "./routes/messageRoutes";
+import userRoutes from "./routes/userRoutes";
+import notificationRoutes from "./routes/notificationRoutes";
 import logger from "./utils/logger";
+import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
 
 dotenv.config();
 
-const app = express();
+const app: Express = express();
 const server = http.createServer(app);
 
 // Initialize Socket.IO
@@ -28,7 +31,7 @@ app.use(express.json());
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(specs));
 
 // Request logging middleware
-app.use((req, res, next) => {
+app.use((req: Request, res: Response, next: NextFunction) => {
   logger.info(`${req.method} ${req.url}`, {
     ip: req.ip,
     userAgent: req.get("user-agent")
@@ -40,19 +43,16 @@ app.use((req, res, next) => {
 app.use("/api/dogs", dogRoutes);
 app.use("/api/matches", matchRoutes);
 app.use("/api/messages", messageRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/notifications", notificationRoutes); // Fixed the path here (was missing a slash)
+
+// Handle 404 errors
+app.use(notFoundHandler);
 
 // Error handling middleware
-app.use(
-  (
-    err: Error,
-    req: express.Request,
-    res: express.Response,
-    next: express.NextFunction
-  ) => {
-    logger.error(err.stack);
-    res.status(500).json({ error: "Something went wrong!" });
-  }
-);
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+  errorHandler(err, req, res, next);
+});
 
 const PORT = process.env.PORT || 5000;
 
