@@ -4,9 +4,9 @@ const options = {
   definition: {
     openapi: "3.0.0",
     info: {
-      title: "Dog Mating App API",
+      title: "Waggle API",
       version: "1.0.0",
-      description: "API documentation for Dog Mating App",
+      description: "API documentation for Waggle",
       contact: {
         name: "API Support",
         email: "your-email@example.com"
