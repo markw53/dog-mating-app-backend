@@ -15,15 +15,47 @@ const router = Router();
  * @swagger
  * components:
  *   schemas:
- *     UserPreferences:
+ *     User:
  *       type: object
+ *       required:
+ *         - email
+ *         - password
  *       properties:
- *         notifications:
+ *         id:
+ *           type: string
+ *           description: Auto-generated user ID
+ *         email:
+ *           type: string
+ *           format: email
+ *           description: User's email
+ *         name:
+ *           type: string
+ *           description: User's full name
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ *         isVerified:
  *           type: boolean
- *         emailUpdates:
- *           type: boolean
- *         radius:
- *           type: number
+ *           description: Email verification status
+ *         photoURL:
+ *           type: string
+ *           description: User's profile photo URL
+ *         phoneNumber:
+ *           type: string
+ *           description: User's phone number
+ *         preferences:
+ *           type: object
+ *           properties:
+ *             notifications:
+ *               type: boolean
+ *             emailUpdates:
+ *               type: boolean
+ *             radius:
+ *               type: number
+ *               description: Search radius in kilometers
  */
 
 /**
