@@ -15,7 +15,7 @@
     "seed:prod": "NDOE_ENV=production ts-node scripts/seedDatabase.ts",
     "deploy": "./scripts/deploy.sh",
     "deploy:seed": "./scripts/deploy.sh --seed",
-    "test:api": "ts-node scripts/testApi.ts",
+    "test:api": "ts-node --project tsconfig.json scripts/testApi.ts",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "format": "prettier --write \"src/**/*.ts\"",

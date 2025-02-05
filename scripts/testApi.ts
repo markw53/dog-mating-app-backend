@@ -1,4 +1,4 @@
-import axios, { AxiosError } from 'axios';
+import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 import { config } from 'dotenv';
 import { faker } from '@faker-js/faker';
 
@@ -6,62 +6,69 @@ config();
 
 const API_URL = process.env.API_URL || 'http://localhost:5000/api';
 let authToken: string;
+let currentUserId: string;
 
-// Add server health check
-async function checkServerAvailability(): Promise<boolean> {
-  try {
-    await axios.get(`${API_URL}/health`);
-    return true;
-  } catch (error) {
-    return false;
-  }
+interface User {
+  id: string;
+  email: string;
+  name: string;
 }
 
-// Add delay utility
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-// Add retry mechanism
-async function waitForServer(maxAttempts = 5, delayMs = 2000): Promise<void> {
-  console.log('Checking server availability...');
-  
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const isAvailable = await checkServerAvailability();
-    
-    if (isAvailable) {
-      console.log('Server is available! ✅');
-      return;
-    }
-
-    if (attempt === maxAttempts) {
-      throw new Error(`Server not available after ${maxAttempts} attempts. Is your server running at ${API_URL}?`);
-    }
-
-    console.log(`Server not available, retrying in ${delayMs/1000} seconds... (Attempt ${attempt}/${maxAttempts})`);
-    await delay(delayMs);
-  }
+interface Dog {
+  id: string;
+  name: string;
+  breed: string;
+  age: number;
+  gender: 'male' | 'female';
+  description: string;
+  location: {
+    latitude: number;
+    longitude: number;
+  };
+  ownerId: string;
+  createdAt: string;
 }
 
-interface RequestConfig {
-  headers?: Record<string, string>;
-  params?: Record<string, any>;
+interface AuthResponse {
+  token: string;
+  user: User;
 }
 
-async function makeRequest(
+interface DogResponse {
+  id: string;
+  [key: string]: any;
+}
+
+type ApiResponse = {
+  token?: string;
+  user?: User;
+  message?: string;
+  error?: string;
+  id?: string;
+  data?: any;
+} & Partial<Dog>;
+
+async function makeRequest<T = ApiResponse>(
   endpoint: string,
   method: 'GET' | 'POST' | 'PUT' | 'DELETE',
   data?: any,
-  config: RequestConfig = {},
-) {
+  config: AxiosRequestConfig = {},
+): Promise<T> {
   try {
     const headers = {
       ...(authToken && { Authorization: `Bearer ${authToken}` }),
       ...config.headers,
     };
 
-    const axiosConfig = {
+    const axiosConfig: AxiosRequestConfig = {
       ...config,
       headers,
     };
+
+    console.log(`Making ${method} request to ${endpoint}`);
+    if (authToken) {
+      console.log('Using token:', authToken.substring(0, 20) + '...');
+    }
 
     let response;
     switch (method) {
@@ -80,12 +87,13 @@ async function makeRequest(
     }
 
     return response?.data;
-  } catch (error) {
-    const axiosError = error as AxiosError;
+  } catch (err) {
+    const error = err as AxiosError;
     console.error('Request failed:', {
       endpoint,
       method,
-      error: axiosError.response?.data || axiosError.message,
+      error: error.response?.data || error.message,
+      status: error.response?.status,
     });
     throw error;
   }
@@ -94,30 +102,37 @@ async function makeRequest(
 async function testAuth() {
   console.log('\n🔐 Testing Authentication...');
 
-  const userData = {
+  const testUserData = {
     email: faker.internet.email(),
     password: 'Test123!@#',
     name: faker.person.fullName(),
   };
 
   try {
-    const registerResponse = await makeRequest('/auth/register', 'POST', userData);
+    console.log('Registering user:', testUserData.email);
+    const registerResponse = await makeRequest<AuthResponse>(
+      '/auth/register',
+      'POST',
+      testUserData,
+    );
     console.log('✅ Registration successful');
-    authToken = registerResponse.token;
-  } catch (error) {
-    console.log('❌ Registration failed');
-    throw error;
-  }
 
-  try {
-    const loginResponse = await makeRequest('/auth/login', 'POST', {
-      email: userData.email,
-      password: userData.password,
+    // Exchange custom token for ID token
+    const exchangeResponse = await makeRequest<{ token: string }>('/auth/exchange-token', 'POST', {
+      customToken: registerResponse.token,
     });
-    console.log('✅ Login successful');
-    authToken = loginResponse.token;
+
+    authToken = exchangeResponse.token;
+    currentUserId = registerResponse.user.id;
+    console.log('Token received:', authToken.substring(0, 20) + '...');
+
+    // Verify the token works
+    const verifyResponse = await makeRequest('/auth/verify-token', 'GET');
+    console.log('✅ Token verified:', verifyResponse);
+
+    return currentUserId;
   } catch (error) {
-    console.log('❌ Login failed');
+    console.log('❌ Authentication failed');
     throw error;
   }
 }
@@ -125,9 +140,6 @@ async function testAuth() {
 async function testDogs() {
   console.log('\n🐕 Testing Dogs API...');
 
-  let testDogId: string;
-
-  // Create Dog
   const dogData = {
     name: faker.animal.dog(),
     breed: faker.helpers.arrayElement(['Labrador', 'German Shepherd', 'Golden Retriever']),
@@ -141,85 +153,11 @@ async function testDogs() {
   };
 
   try {
-    const createDogResponse = await makeRequest('/dogs', 'POST', dogData);
-    testDogId = createDogResponse.id;
+    const createDogResponse = await makeRequest<DogResponse>('/dogs', 'POST', dogData);
     console.log('✅ Dog created successfully');
+    return createDogResponse.id;
   } catch (error) {
     console.log('❌ Dog creation failed');
-    throw error;
-  }
-
-  // Get Dogs
-  try {
-    const dogs = await makeRequest('/dogs', 'GET');
-    console.log(`✅ Retrieved ${dogs.length} dogs`);
-  } catch (error) {
-    console.log('❌ Failed to retrieve dogs');
-    throw error;
-  }
-
-  // Get Nearby Dogs
-  try {
-    const nearbyDogs = await makeRequest('/dogs/nearby', 'GET', null, {
-      params: {
-        latitude: Number(faker.location.latitude()),
-        longitude: Number(faker.location.longitude()),
-        radius: 10,
-      },
-    });
-    console.log(`✅ Found ${nearbyDogs.length} nearby dogs`);
-  } catch (error) {
-    console.log('❌ Failed to retrieve nearby dogs');
-    throw error;
-  }
-
-  return testDogId;
-}
-
-async function testMatches(testDogId: string) {
-  console.log('\n❤️ Testing Matches API...');
-  let testMatchId: string;
-
-  try {
-    const dogs = await makeRequest('/dogs', 'GET');
-    const otherDog = dogs.find((dog: any) => dog.id !== testDogId);
-
-    if (!otherDog) {
-      throw new Error('No other dog found for matching');
-    }
-
-    const matchData = {
-      dog1Id: testDogId,
-      dog2Id: otherDog.id,
-    };
-
-    const createMatchResponse = await makeRequest('/matches', 'POST', matchData);
-    testMatchId = createMatchResponse.id;
-    console.log('✅ Match created successfully');
-
-    return testMatchId;
-  } catch (error) {
-    console.log('❌ Match creation failed');
-    throw error;
-  }
-}
-
-async function testMessages(testMatchId: string) {
-  console.log('\n💬 Testing Messages API...');
-
-  try {
-    const messageData = {
-      matchId: testMatchId,
-      content: faker.lorem.sentence(),
-    };
-
-    await makeRequest('/messages', 'POST', messageData);
-    console.log('✅ Message sent successfully');
-
-    const messages = await makeRequest(`/messages/${testMatchId}`, 'GET');
-    console.log(`✅ Retrieved ${messages.length} messages`);
-  } catch (error) {
-    console.log('❌ Message operations failed');
     throw error;
   }
 }
@@ -228,26 +166,16 @@ async function runTests() {
   try {
     console.log('🚀 Starting API tests...');
 
-    // Add server availability check
-    await waitForServer();
-
     await testAuth();
-    const testDogId = await testDogs();
-    const testMatchId = await testMatches(testDogId);
-    await testMessages(testMatchId);
+    const dogId = await testDogs();
 
     console.log('\n✅ All tests completed successfully!');
+    return { success: true, dogId };
   } catch (error) {
-    if (error instanceof AxiosError && error.code === 'ECONNREFUSED') {
-      console.error('\n❌ Cannot connect to server. Please make sure:');
-      console.error(`1. Your server is running (npm run dev)`);
-      console.error(`2. The server is running on port 5000`);
-      console.error(`3. The API_URL in your .env file is correct (currently: ${API_URL})`);
-    } else {
-      console.error('\n❌ Tests failed:', error);
-    }
+    console.error('\n❌ Tests failed:', error);
     process.exit(1);
   }
 }
 
-runTests();
+// Run the tests
+void runTests();

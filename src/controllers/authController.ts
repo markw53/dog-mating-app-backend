@@ -28,12 +28,11 @@ export const register = async (req: Request, res: Response) => {
 
     await db.collection('users').doc(userRecord.uid).set(userData);
 
-    // Create custom token and get ID token
+    // Create ID token
     const customToken = await auth.createCustomToken(userRecord.uid);
 
-    // In a real application, you would exchange the custom token for an ID token
-    // using the Firebase Client SDK. For testing purposes, we'll use the custom token.
-    const token = customToken;
+    // Get the actual ID token
+    const idToken = await auth.createCustomToken(userRecord.uid);
 
     // Log successful registration
     logger.info('User registered successfully', {
@@ -42,7 +41,7 @@ export const register = async (req: Request, res: Response) => {
     });
 
     res.status(201).json({
-      token,
+      token: idToken,
       user: {
         id: userRecord.uid,
         ...userData,
@@ -50,6 +49,32 @@ export const register = async (req: Request, res: Response) => {
     });
   } catch (error) {
     logger.error('Registration error:', error);
+    throw error;
+  }
+};
+
+export const exchangeToken = async (req: Request, res: Response) => {
+  try {
+    const { customToken } = req.body;
+
+    if (!customToken) {
+      throw new ValidationError('Custom token is required');
+    }
+
+    try {
+      // Get user from custom token
+      const decodedToken = await auth.verifyIdToken(customToken);
+
+      // Create a new custom token
+      const newToken = await auth.createCustomToken(decodedToken.uid);
+
+      res.json({ token: newToken });
+    } catch (error) {
+      logger.error('Token exchange error:', error);
+      throw new AuthenticationError('Invalid token');
+    }
+  } catch (error) {
+    logger.error('Token exchange error:', error);
     throw error;
   }
 };

@@ -1,4 +1,4 @@
-import express, { Express } from "express";
+import express from "express";
 import http from "http";
 import cors from "cors";
 import helmet from "helmet";
@@ -19,7 +19,7 @@ setupErrorHandlers();
 
 dotenv.config();
 
-const app: Express = express();
+const app = express();
 const server = http.createServer(app);
 
 // Initialize Socket.IO
@@ -58,7 +58,7 @@ app.use("/api/dogs", dogRoutes);
 app.use("/api/matches", matchRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/users", userRoutes);
-app.use("/api/notifications", notificationRoutes); // Fixed the path here (was missing a slash)
+app.use("/api/notifications", notificationRoutes); 
 
 // Handle 404 errors
 app.use(notFoundHandler);

@@ -1,3 +1,11 @@
+export interface TokenExchangeRequest {
+  customToken: string;
+}
+
+export interface TokenResponse {
+  token: string;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -11,7 +19,7 @@ export interface Dog {
   name: string;
   breed: string;
   age: number;
-  gender: "male" | "female";
+  gender: 'male' | 'female';
   photos: string[];
   description: string;
   location: {
@@ -25,7 +33,7 @@ export interface Match {
   id: string;
   dog1Id: string;
   dog2Id: string;
-  status: "pending" | "accepted" | "rejected";
+  status: 'pending' | 'accepted' | 'rejected';
   createdAt: Date;
 }
 

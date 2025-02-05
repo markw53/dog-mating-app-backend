@@ -8,7 +8,8 @@ import {
   requestPasswordReset,
   verifyEmail,
   refreshToken,
-  verifyToken
+  verifyToken,
+  exchangeToken
 } from "../controllers/authController";
 
 const router = Router();
@@ -279,9 +280,41 @@ router.post("/refresh-token", authenticateUser, refreshToken);
  */
 router.get("/verify-token", authenticateUser, verifyToken);
 
+/**
+ * @swagger
+ * /api/auth/exchange-token:
+ *   post:
+ *     summary: Exchange custom token for ID token
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - customToken
+ *             properties:
+ *               customToken:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Token exchanged successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 token:
+ *                   type: string
+ */
+router.post('/exchange-token', exchangeToken);
+
 router.post('/register', register);
 router.post('/login', login);
 router.get('/profile', authenticateUser, getProfile);
 router.put('/profile', authenticateUser, updateProfile);
+router.post('/password-reset', requestPasswordReset);
+router.post('/verify-email', verifyEmail);
 
 export default router;
