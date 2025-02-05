@@ -117,22 +117,21 @@ async function testAuth() {
     );
     console.log('✅ Registration successful');
 
-    // Exchange custom token for ID token
-    const exchangeResponse = await makeRequest<{ token: string }>('/auth/exchange-token', 'POST', {
-      customToken: registerResponse.token,
-    });
-
-    authToken = exchangeResponse.token;
+    // Store both token and user ID
+    authToken = registerResponse.token;
     currentUserId = registerResponse.user.id;
-    console.log('Token received:', authToken.substring(0, 20) + '...');
 
-    // Verify the token works
-    const verifyResponse = await makeRequest('/auth/verify-token', 'GET');
-    console.log('✅ Token verified:', verifyResponse);
+    console.log('Token received:', authToken.substring(0, 20) + '...');
+    console.log('User ID:', currentUserId);
+
+    // Test the token with profile endpoint
+    console.log('Verifying token with profile request...');
+    const profileResponse = await makeRequest('/auth/profile', 'GET');
+    console.log('✅ Token verified - Profile retrieved');
 
     return currentUserId;
   } catch (error) {
-    console.log('❌ Authentication failed');
+    console.log('❌ Authentication failed:', error.response?.data || error.message);
     throw error;
   }
 }

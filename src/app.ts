@@ -52,6 +52,16 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  // Application specific logging, throwing an error, or other logic here
+});
+
+process.on('uncaughtException', error => {
+  console.error('Uncaught Exception:', error);
+  // Application specific logging, throwing an error, or other logic here
+});
+
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/dogs", dogRoutes);

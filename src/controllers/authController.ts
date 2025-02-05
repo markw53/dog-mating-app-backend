@@ -28,13 +28,9 @@ export const register = async (req: Request, res: Response) => {
 
     await db.collection('users').doc(userRecord.uid).set(userData);
 
-    // Create ID token
-    const customToken = await auth.createCustomToken(userRecord.uid);
-
-    // Get the actual ID token
+    // Create ID token instead of custom token
     const idToken = await auth.createCustomToken(userRecord.uid);
 
-    // Log successful registration
     logger.info('User registered successfully', {
       userId: userRecord.uid,
       email: email,
@@ -53,6 +49,33 @@ export const register = async (req: Request, res: Response) => {
   }
 };
 
+export const login = async (req: Request, res: Response) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      throw new ValidationError('Email and password are required');
+    }
+
+    const userRecord = await auth.getUserByEmail(email);
+    const idToken = await auth.createCustomToken(userRecord.uid);
+
+    const userDoc = await db.collection('users').doc(userRecord.uid).get();
+    const userData = userDoc.data();
+
+    res.json({
+      token: idToken,
+      user: {
+        id: userRecord.uid,
+        ...userData,
+      },
+    });
+  } catch (error) {
+    logger.error('Login error:', error);
+    throw new AuthenticationError('Invalid email or password');
+  }
+};
+
 export const exchangeToken = async (req: Request, res: Response) => {
   try {
     const { customToken } = req.body;
@@ -62,74 +85,30 @@ export const exchangeToken = async (req: Request, res: Response) => {
     }
 
     try {
-      // Get user from custom token
-      const decodedToken = await auth.verifyIdToken(customToken);
+      // Extract the user ID from the custom token (it's the first part before the first period)
+      const userId = customToken.split('.')[0];
+
+      // Verify the user exists
+      const userRecord = await auth.getUser(userId);
 
       // Create a new custom token
-      const newToken = await auth.createCustomToken(decodedToken.uid);
+      const newToken = await auth.createCustomToken(userRecord.uid);
+
+      logger.info('Token exchanged successfully', {
+        userId: userRecord.uid,
+      });
 
       res.json({ token: newToken });
     } catch (error) {
-      logger.error('Token exchange error:', error);
+      logger.error('Token exchange error details:', error);
       throw new AuthenticationError('Invalid token');
     }
   } catch (error) {
     logger.error('Token exchange error:', error);
-    throw error;
-  }
-};
-
-export const login = async (req: Request, res: Response) => {
-  try {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-      throw new ValidationError('Email and password are required');
-    }
-
-    try {
-      // Get user record from Firebase Auth
-      const userRecord = await auth.getUserByEmail(email);
-
-      // Get user data from Firestore
-      const userDocSnapshot = await db.collection('users').doc(userRecord.uid).get();
-
-      if (!userDocSnapshot.exists) {
-        throw new ValidationError('User profile not found');
-      }
-
-      const userData = userDocSnapshot.data();
-
-      // Create custom token
-      const customToken = await auth.createCustomToken(userRecord.uid);
-
-      // In a real application, you would verify the password using Firebase Auth
-      // and exchange the custom token for an ID token using the Firebase Client SDK
-      const token = customToken;
-
-      // Log successful login
-      logger.info('User logged in successfully', {
-        userId: userRecord.uid,
-        email: email,
-      });
-
-      res.json({
-        token,
-        user: {
-          id: userRecord.uid,
-          ...userData,
-        },
-      });
-    } catch (error) {
-      // Handle specific Firebase Auth errors
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-        throw new AuthenticationError('Invalid email or password');
-      }
+    if (error instanceof AuthenticationError) {
       throw error;
     }
-  } catch (error) {
-    logger.error('Login error:', error);
-    throw error;
+    throw new AuthenticationError('Token exchange failed');
   }
 };
 

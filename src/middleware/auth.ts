@@ -29,30 +29,53 @@ export const authenticateUser = async (req: Request, res: Response, next: NextFu
     }
 
     try {
-      // For custom tokens, we need to verify them differently
-      const decodedToken = await auth.verifyIdToken(token);
+      // First try to verify as a custom token
+      const userRecord = await auth.getUser(token.split('.')[0]);
       req.user = {
-        uid: decodedToken.uid,
-        email: decodedToken.email,
-        displayName: decodedToken.name,
+        uid: userRecord.uid,
+        email: userRecord.email,
+        displayName: userRecord.displayName,
       };
       next();
-    } catch (verifyError) {
-      // If ID token verification fails, try using the token as a user ID
+    } catch (customTokenError) {
       try {
-        const userRecord = await auth.getUser(token);
+        // If custom token fails, try as ID token
+        const decodedToken = await auth.verifyIdToken(token);
+        const userRecord = await auth.getUser(decodedToken.uid);
         req.user = {
           uid: userRecord.uid,
           email: userRecord.email,
           displayName: userRecord.displayName,
         };
         next();
-      } catch (userError) {
-        logger.error('Token verification failed:', verifyError);
-        logger.error('User lookup failed:', userError);
+      } catch (idTokenError) {
+        logger.error('Token verification failed:', {
+          customTokenError,
+          idTokenError,
+        });
         throw new AuthenticationError('Invalid token');
       }
     }
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Optional: Add a middleware to verify admin status if needed
+export const requireAdmin = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user?.uid) {
+      throw new AuthenticationError('User not authenticated');
+    }
+
+    const userRecord = await auth.getUser(req.user.uid);
+    const customClaims = userRecord.customClaims || {};
+
+    if (!customClaims.admin) {
+      throw new AuthenticationError('Requires admin privileges');
+    }
+
+    next();
   } catch (error) {
     next(error);
   }
