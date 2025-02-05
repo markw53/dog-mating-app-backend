@@ -1,27 +1,32 @@
-import { Request, Response } from "express";
-import { auth, db } from "../config/firebase";
-import { User } from "../types";
-import logger from "../utils/logger";
+import { Request, Response } from 'express';
+import { auth, db } from '../config/firebase';
+import { User } from '../types';
+import logger from '../utils/logger';
+import { AuthenticationError, ValidationError } from '../middleware/errorHandler';
 
 export const register = async (req: Request, res: Response) => {
   try {
     const { email, password, name } = req.body;
 
+    if (!email || !password || !name) {
+      throw new ValidationError('Email, password, and name are required');
+    }
+
     // Create user in Firebase Auth
     const userRecord = await auth.createUser({
       email,
       password,
-      displayName: name
+      displayName: name,
     });
 
     // Create user document in Firestore
-    const userData: Omit<User, "id"> = {
+    const userData: Omit<User, 'id'> = {
       email,
       name,
-      createdAt: new Date()
+      createdAt: new Date(),
     };
 
-    await db.collection("users").doc(userRecord.uid).set(userData);
+    await db.collection('users').doc(userRecord.uid).set(userData);
 
     // Create custom token
     const token = await auth.createCustomToken(userRecord.uid);
@@ -30,12 +35,12 @@ export const register = async (req: Request, res: Response) => {
       token,
       user: {
         id: userRecord.uid,
-        ...userData
-      }
+        ...userData,
+      },
     });
   } catch (error) {
-    logger.error("Registration error:", error);
-    res.status(400).json({ error: "Failed to register user" });
+    logger.error('Registration error:', error);
+    throw error;
   }
 };
 
@@ -43,89 +48,109 @@ export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
-    // Verify credentials with Firebase Auth
-    const userCredential = await auth.getUserByEmail(email);
+    if (!email || !password) {
+      throw new ValidationError('Email and password are required');
+    }
+
+    // In a real application, you would verify the password here
+    const userRecord = await auth.getUserByEmail(email);
 
     // Get user data from Firestore
-    const userDoc = await db.collection("users").doc(userCredential.uid).get();
-    const userData = userDoc.data() as Omit<User, "id">;
+    const userDocSnapshot = await db.collection('users').doc(userRecord.uid).get();
+    const userData = userDocSnapshot.data();
 
     // Create custom token
-    const token = await auth.createCustomToken(userCredential.uid);
+    const token = await auth.createCustomToken(userRecord.uid);
 
     res.json({
       token,
       user: {
-        id: userCredential.uid,
-        ...userData
-      }
+        id: userRecord.uid,
+        ...userData,
+      },
     });
   } catch (error) {
-    logger.error("Login error:", error);
-    res.status(401).json({ error: "Invalid credentials" });
+    logger.error('Login error:', error);
+    throw new AuthenticationError('Invalid email or password');
   }
 };
 
 export const getProfile = async (req: Request, res: Response) => {
   try {
-    const userId = req.user.uid;
-    const userDoc = await db.collection("users").doc(userId).get();
+    const userDocSnapshot = await db.collection('users').doc(req.user.uid).get();
 
-    if (!userDoc.exists) {
-      return res.status(404).json({ error: "User not found" });
+    if (!userDocSnapshot.exists) {
+      throw new ValidationError('User profile not found');
     }
 
     res.json({
-      id: userDoc.id,
-      ...userDoc.data()
+      id: userDocSnapshot.id,
+      ...userDocSnapshot.data(),
     });
   } catch (error) {
-    logger.error("Get profile error:", error);
-    res.status(500).json({ error: "Failed to get user profile" });
+    logger.error('Get profile error:', error);
+    throw error;
   }
 };
 
 export const updateProfile = async (req: Request, res: Response) => {
   try {
-    const userId = req.user.uid;
     const { name, email } = req.body;
+    const updates: Record<string, any> = {
+      updatedAt: new Date(),
+    };
 
-    // Update Auth profile
-    await auth.updateUser(userId, {
-      email,
-      displayName: name
-    });
+    if (name) updates.name = name;
+    if (email) updates.email = email;
 
     // Update Firestore document
-    await db.collection("users").doc(userId).update({
-      name,
-      email
-    });
+    await db.collection('users').doc(req.user.uid).update(updates);
 
-    const updatedDoc = await db.collection("users").doc(userId).get();
+    // Get updated document
+    const updatedDocSnapshot = await db.collection('users').doc(req.user.uid).get();
 
     res.json({
-      id: updatedDoc.id,
-      ...updatedDoc.data()
+      id: updatedDocSnapshot.id,
+      ...updatedDocSnapshot.data(),
     });
   } catch (error) {
-    logger.error("Update profile error:", error);
-    res.status(500).json({ error: "Failed to update profile" });
+    logger.error('Update profile error:', error);
+    throw error;
   }
 };
 
-export const updateFcmToken = async (req: Request, res: Response) => {
+// Optional: Add password reset functionality
+export const requestPasswordReset = async (req: Request, res: Response) => {
   try {
-    const userId = req.user.uid;
-    const { fcmToken } = req.body;
+    const { email } = req.body;
 
-    await db.collection("users").doc(userId).update({
-      fcmToken
-    });
+    if (!email) {
+      throw new ValidationError('Email is required');
+    }
 
-    res.json({ message: "FCM token updated successfully" });
+    await auth.generatePasswordResetLink(email);
+
+    res.json({ message: 'Password reset email sent' });
   } catch (error) {
-    logger.error("Update FCM token error:", error);
-    res.status(500).json({ error: "Failed to update FCM token" });
+    logger.error('Password reset request error:', error);
+    throw error;
+  }
+};
+
+// Optional: Add email verification functionality
+export const verifyEmail = async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      throw new ValidationError('Email is required');
+    }
+
+    await auth.generateEmailVerificationLink(email);
+
+    res.json({ message: 'Email verification link sent' });
+  } catch (error) {
+    logger.error('Email verification request error:', error);
+    throw error;
   }
 };

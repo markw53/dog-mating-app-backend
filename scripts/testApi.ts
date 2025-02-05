@@ -7,6 +7,40 @@ config();
 const API_URL = process.env.API_URL || 'http://localhost:5000/api';
 let authToken: string;
 
+// Add server health check
+async function checkServerAvailability(): Promise<boolean> {
+  try {
+    await axios.get(`${API_URL}/health`);
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+// Add delay utility
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Add retry mechanism
+async function waitForServer(maxAttempts = 5, delayMs = 2000): Promise<void> {
+  console.log('Checking server availability...');
+  
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const isAvailable = await checkServerAvailability();
+    
+    if (isAvailable) {
+      console.log('Server is available! ✅');
+      return;
+    }
+
+    if (attempt === maxAttempts) {
+      throw new Error(`Server not available after ${maxAttempts} attempts. Is your server running at ${API_URL}?`);
+    }
+
+    console.log(`Server not available, retrying in ${delayMs/1000} seconds... (Attempt ${attempt}/${maxAttempts})`);
+    await delay(delayMs);
+  }
+}
+
 interface RequestConfig {
   headers?: Record<string, string>;
   params?: Record<string, any>;
@@ -194,6 +228,9 @@ async function runTests() {
   try {
     console.log('🚀 Starting API tests...');
 
+    // Add server availability check
+    await waitForServer();
+
     await testAuth();
     const testDogId = await testDogs();
     const testMatchId = await testMatches(testDogId);
@@ -201,7 +238,14 @@ async function runTests() {
 
     console.log('\n✅ All tests completed successfully!');
   } catch (error) {
-    console.error('\n❌ Tests failed:', error);
+    if (error instanceof AxiosError && error.code === 'ECONNREFUSED') {
+      console.error('\n❌ Cannot connect to server. Please make sure:');
+      console.error(`1. Your server is running (npm run dev)`);
+      console.error(`2. The server is running on port 5000`);
+      console.error(`3. The API_URL in your .env file is correct (currently: ${API_URL})`);
+    } else {
+      console.error('\n❌ Tests failed:', error);
+    }
     process.exit(1);
   }
 }

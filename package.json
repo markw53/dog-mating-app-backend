@@ -8,6 +8,7 @@
     "dev": "ts-node-dev --respawn --transpile-only src/app.ts",
     "build": "tsc",
     "test": "jest",
+    "test:full": "concurrently \"npm run dev\" \"wait-on http://localhost:5000/api/health && npm run test:api\"",
     "setup": "./scripts/setup-env.sh",
     "deploy:rules": "firebase deploy --only firestore:rules,storage:rules",
     "seed": "ts-node scripts/seedDatabase.ts",
@@ -51,7 +52,9 @@
     "@types/swagger-ui-express": "^4.1.7",
     "@typescript-eslint/eslint-plugin": "^8.22.0",
     "@typescript-eslint/parser": "^8.22.0",
+    "concurrently": "^9.1.2",
     "ts-node-dev": "^2.0.0",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "wait-on": "^8.0.2"
   }
 }
