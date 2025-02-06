@@ -8,45 +8,27 @@ const API_URL = process.env.API_URL || 'http://localhost:5000/api';
 let authToken: string;
 let currentUserId: string;
 
-interface User {
-  id: string;
-  email: string;
-  name: string;
-}
-
-interface Dog {
-  id: string;
-  name: string;
-  breed: string;
-  age: number;
-  gender: 'male' | 'female';
-  description: string;
-  location: {
-    latitude: number;
-    longitude: number;
-  };
-  ownerId: string;
-  createdAt: string;
-}
-
-interface AuthResponse {
-  token: string;
-  user: User;
-}
-
-interface DogResponse {
-  id: string;
-  [key: string]: any;
-}
-
-type ApiResponse = {
+interface ApiResponse {
   token?: string;
-  user?: User;
+  user?: {
+    id: string;
+    email: string;
+    name: string;
+  };
   message?: string;
   error?: string;
-  id?: string;
-  data?: any;
-} & Partial<Dog>;
+}
+
+interface ApiError {
+  response?: {
+    data?: {
+      error?: string;
+      message?: string;
+    };
+    status?: number;
+  };
+  message: string;
+}
 
 async function makeRequest<T = ApiResponse>(
   endpoint: string,
@@ -130,7 +112,8 @@ async function testAuth() {
     console.log('✅ Token verified - Profile retrieved');
 
     return currentUserId;
-  } catch (error) {
+  } catch (err) {
+    const error = err as AxiosError;
     console.log('❌ Authentication failed:', error.response?.data || error.message);
     throw error;
   }
@@ -155,10 +138,25 @@ async function testDogs() {
     const createDogResponse = await makeRequest<DogResponse>('/dogs', 'POST', dogData);
     console.log('✅ Dog created successfully');
     return createDogResponse.id;
-  } catch (error) {
-    console.log('❌ Dog creation failed');
+  } catch (err) {
+    const error = err as AxiosError;
+    console.log('❌ Dog creation failed:', error.response?.data || error.message);
     throw error;
   }
+}
+
+interface AuthResponse {
+  token: string;
+  user: {
+    id: string;
+    email: string;
+    name: string;
+  };
+}
+
+interface DogResponse {
+  id: string;
+  [key: string]: any;
 }
 
 async function runTests() {
@@ -170,8 +168,9 @@ async function runTests() {
 
     console.log('\n✅ All tests completed successfully!');
     return { success: true, dogId };
-  } catch (error) {
-    console.error('\n❌ Tests failed:', error);
+  } catch (err) {
+    const error = err as AxiosError;
+    console.error('\n❌ Tests failed:', error.response?.data || error.message);
     process.exit(1);
   }
 }
