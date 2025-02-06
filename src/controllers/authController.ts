@@ -28,8 +28,8 @@ export const register = async (req: Request, res: Response) => {
 
     await db.collection('users').doc(userRecord.uid).set(userData);
 
-    // Create ID token instead of custom token
-    const idToken = await auth.createCustomToken(userRecord.uid);
+    // Use the UID directly as the token
+    const token = userRecord.uid;
 
     logger.info('User registered successfully', {
       userId: userRecord.uid,
@@ -37,7 +37,7 @@ export const register = async (req: Request, res: Response) => {
     });
 
     res.status(201).json({
-      token: idToken,
+      token,
       user: {
         id: userRecord.uid,
         ...userData,
@@ -58,13 +58,13 @@ export const login = async (req: Request, res: Response) => {
     }
 
     const userRecord = await auth.getUserByEmail(email);
-    const idToken = await auth.createCustomToken(userRecord.uid);
+    const token = userRecord.uid; // Use UID as token
 
     const userDoc = await db.collection('users').doc(userRecord.uid).get();
     const userData = userDoc.data();
 
     res.json({
-      token: idToken,
+      token,
       user: {
         id: userRecord.uid,
         ...userData,

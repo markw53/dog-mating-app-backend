@@ -29,53 +29,26 @@ export const authenticateUser = async (req: Request, res: Response, next: NextFu
     }
 
     try {
-      // First try to verify as a custom token
-      const userRecord = await auth.getUser(token.split('.')[0]);
+      // Get the user ID from the token (assuming it's a custom token)
+      const decodedToken = token.split('.')[0];
+      const userRecord = await auth.getUser(decodedToken);
+
       req.user = {
         uid: userRecord.uid,
         email: userRecord.email,
         displayName: userRecord.displayName,
       };
+
+      logger.info('User authenticated:', {
+        uid: userRecord.uid,
+        email: userRecord.email,
+      });
+
       next();
-    } catch (customTokenError) {
-      try {
-        // If custom token fails, try as ID token
-        const decodedToken = await auth.verifyIdToken(token);
-        const userRecord = await auth.getUser(decodedToken.uid);
-        req.user = {
-          uid: userRecord.uid,
-          email: userRecord.email,
-          displayName: userRecord.displayName,
-        };
-        next();
-      } catch (idTokenError) {
-        logger.error('Token verification failed:', {
-          customTokenError,
-          idTokenError,
-        });
-        throw new AuthenticationError('Invalid token');
-      }
+    } catch (error) {
+      logger.error('Authentication failed:', error);
+      throw new AuthenticationError('Invalid token');
     }
-  } catch (error) {
-    next(error);
-  }
-};
-
-// Optional: Add a middleware to verify admin status if needed
-export const requireAdmin = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    if (!req.user?.uid) {
-      throw new AuthenticationError('User not authenticated');
-    }
-
-    const userRecord = await auth.getUser(req.user.uid);
-    const customClaims = userRecord.customClaims || {};
-
-    if (!customClaims.admin) {
-      throw new AuthenticationError('Requires admin privileges');
-    }
-
-    next();
   } catch (error) {
     next(error);
   }

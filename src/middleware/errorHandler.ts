@@ -64,6 +64,14 @@ export const errorHandler: ErrorRequestHandler = (
     timestamp: new Date().toISOString(),
   });
 
+  if (err instanceof AuthenticationError) {
+    return res.status(401).json({
+      status: 'error',
+      message: err.message,
+      code: err.name,
+    });
+  }
+
   // Handle AppError (our custom errors)
   if (err instanceof AppError) {
     return res.status(err.statusCode).json({

@@ -99,17 +99,16 @@ async function testAuth() {
     );
     console.log('✅ Registration successful');
 
-    // Store both token and user ID
+    // Store the token (which is the user ID)
     authToken = registerResponse.token;
     currentUserId = registerResponse.user.id;
 
-    console.log('Token received:', authToken.substring(0, 20) + '...');
-    console.log('User ID:', currentUserId);
+    console.log('Token received (User ID):', authToken);
 
     // Test the token with profile endpoint
     console.log('Verifying token with profile request...');
     const profileResponse = await makeRequest('/auth/profile', 'GET');
-    console.log('✅ Token verified - Profile retrieved');
+    console.log('✅ Token verified - Profile retrieved:', profileResponse);
 
     return currentUserId;
   } catch (err) {
