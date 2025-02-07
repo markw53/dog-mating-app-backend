@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction, ErrorRequestHandler } from 'express';
-import { FirebaseError } from 'firebase-admin';
+import { FirebaseError } from 'firebase-admin/lib/utils/error';
 import logger from '../utils/logger';
 import constants from '../config/constants';
 
@@ -65,61 +65,68 @@ export const errorHandler: ErrorRequestHandler = (
   });
 
   if (err instanceof AuthenticationError) {
-    return res.status(401).json({
+    res.status(401).json({
       status: 'error',
       message: err.message,
       code: err.name,
     });
+    return next();
   }
 
   // Handle AppError (our custom errors)
   if (err instanceof AppError) {
-    return res.status(err.statusCode).json({
+    res.status(err.statusCode).json({
       status: 'error',
       message: err.message,
       code: err.name,
       ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
     });
+    return next();
   }
 
   // Handle Firebase Errors
   if (err instanceof FirebaseError) {
-    return handleFirebaseError(err, res);
+    handleFirebaseError(err, res);
+    return next();
   }
 
   // Handle validation errors
   if (err.name === 'ValidationError') {
-    return res.status(400).json({
+    res.status(400).json({
       status: 'error',
       message: err.message,
       code: 'VALIDATION_ERROR',
     });
+    return next();
   }
 
   // Handle JWT Errors
   if (err.name === 'JsonWebTokenError') {
-    return res.status(401).json({
+    res.status(401).json({
       status: 'error',
       message: 'Invalid token',
       code: 'INVALID_TOKEN',
     });
+    return next();
   }
 
   if (err.name === 'TokenExpiredError') {
-    return res.status(401).json({
+    res.status(401).json({
       status: 'error',
       message: 'Token expired',
       code: 'TOKEN_EXPIRED',
     });
+    return next();
   }
 
   // Default Error Response
-  return res.status(500).json({
+  res.status(500).json({
     status: 'error',
     message: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message,
     code: 'INTERNAL_SERVER_ERROR',
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
   });
+  return next();
 };
 
 // Firebase Error Handler
