@@ -60,8 +60,8 @@ async function seedDatabase() {
             .map(() => faker.image.url()),
           description: faker.lorem.paragraph(),
           location: {
-            latitude: parseFloat(faker.location.latitude()),
-            longitude: parseFloat(faker.location.longitude())
+            latitude: faker.location.latitude(),
+            longitude: faker.location.longitude()
           },
           createdAt: new Date(),
           traits: {
@@ -95,8 +95,8 @@ async function seedDatabase() {
           purpose: faker.helpers.arrayElement(["breeding", "playdate"]),
           preferredDate: faker.date.future(),
           location: {
-            latitude: parseFloat(faker.location.latitude()),
-            longitude: parseFloat(faker.location.longitude())
+            latitude: faker.location.latitude(),
+            longitude: faker.location.longitude()
           }
         }
       };
